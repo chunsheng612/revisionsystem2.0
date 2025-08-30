@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作業與訂正管理系統 v4.4</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        
+        :root {
+            --primary-color: #007AFF;
+            --success-color: #34C759;
+            --warning-color: #FF9500;
+            --pending-color: #8E8E93;
+            --danger-color: #FF3B30;
+
+            --bg-color: #F6F6F8;
+            --card-bg: rgba(255, 255, 255, 0.7);
+            --card-border: rgba(0, 0, 0, 0.08);
+            --text-primary: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --input-bg: rgba(0, 0, 0, 0.05);
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --control-border-radius: 14px;
+        }
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            background-color: var(--bg-color);
+            background-image: linear-gradient(to top, #accbee 0%, #e7f0fd 100%);
+            background-attachment: fixed;
+            padding-bottom: 80px;
+        }
+        
+        .app-screen { display: none; padding: 25px; width: 100%; min-height: 100%; }
+        .app-screen.active { display: flex; flex-direction: column; animation: screenFadeIn 0.4s ease; }
+        @keyframes screenFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .container { max-width: 900px; margin: 0 auto; width: 100%; }
+        .header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 30px; gap: 15px;}
+        h1 { font-weight: 700; font-size: 2.4em; color: var(--text-primary); }
+        h2 { font-weight: 600; color: var(--text-primary); margin: 0 0 25px; font-size: 1.6em;}
+        
+        .card { 
+            background: var(--card-bg); 
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px); 
+            border-radius: 20px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 8px 32px 0 var(--shadow-color); 
+            padding: 25px;
+        }
+        
+        input, button, textarea { border-radius: var(--control-border-radius) !important; font-family: inherit; }
+        input, textarea { background-color: var(--input-bg); border: 1px solid rgba(0,0,0,0.1); box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); padding: 14px 18px; font-size: 1em; width: 100%; color: var(--text-primary); }
+        textarea { resize: vertical; min-height: 150px; }
+        input:focus, textarea:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3); }
+        
+        button { padding: 14px 22px; border: none; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-success { background: var(--success-color); color: white; }
+        .btn-warning { background: var(--warning-color); color: white; }
+        .btn-secondary { background: rgba(0, 0, 0, 0.08); color: var(--text-primary); }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        button:hover { transform: translateY(-2px); filter: brightness(1.05); }
+        button:active { transform: translateY(0); filter: brightness(1); }
+
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .class-card, .homework-card { cursor: pointer; display: flex; flex-direction: column; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .class-card:hover, .homework-card:hover { transform: translateY(-5px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12); }
+        
+        .card-title { font-size: 1.2em; font-weight: 600; margin-bottom: 10px; flex-grow: 1; color: var(--text-primary); }
+        .card-footer { display: flex; justify-content: space-between; align-items: center; color: var(--text-secondary); font-size: 0.9em; }
+        .card-footer-badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+        .status-badge { padding: 5px 12px; border-radius: 50px; font-weight: 600; font-size: 0.8em; }
+        .status-badge-completed { background-color: var(--success-color); color: white; }
+        .status-badge-pending { background-color: var(--pending-color); color: white; }
+        .status-badge-correction { background-color: var(--warning-color); color: white; }
+
+        #student-checklist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; }
+        .student-item { 
+            padding: 15px 10px; border-radius: var(--control-border-radius); font-size: 1.1em; 
+            font-weight: 600; cursor: pointer; transition: all 0.2s ease-in-out; 
+            text-align: center; border: 2px solid;
+        }
+        .student-item-id { font-size: 1.3em; display: block; font-weight: 700; }
+        .student-item-status { font-size: 0.8em; display: block; margin-top: 4px; }
+        
+        .status-completed { background-color: var(--success-color); border-color: var(--success-color); color: #fff; }
+        .status-submitted { background-color: var(--primary-color); border-color: var(--primary-color); color: #fff; }
+        .status-needs_correction { background-color: var(--warning-color); border-color: var(--warning-color); color: #fff; }
+        .status-pending { background-color: transparent; border-color: var(--pending-color); color: var(--pending-color); }
+
+        .footer-actions { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: flex-end; align-items: center; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); background: rgba(0,0,0,0.1); align-items: center; justify-content: center; z-index: 10; opacity: 0; transition: opacity 0.3s ease; }
+        .modal.visible { display: flex; opacity: 1; }
+        .modal-card { padding: 30px; max-width: 500px; width: 90%; transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); background: var(--card-bg); }
+        .modal.visible .modal-card { transform: scale(1); }
+        .control-group label { display: block; color: var(--text-secondary); font-weight: 500; font-size: 0.9em; margin-bottom: 8px; }
+        
+        #student-action-center-container { display: flex; flex-direction: column; gap: 20px; }
+        .task-card { padding: 25px; }
+        .task-card-title { font-size: 1.3em; font-weight: 600; margin-bottom: 15px; color: var(--text-primary); }
+        .student-tags-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; }
+        
+        .student-action-tag {
+            color: #fff; padding: 12px 10px; border: none; border-radius: var(--control-border-radius); 
+            font-size: 1.1em; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.1); 
+            cursor: pointer; transition: all 0.2s ease; text-align: center;
+        }
+        .student-action-tag:hover { transform: scale(1.05); filter: brightness(1.1); }
+        .student-action-tag.is-correction { background-color: var(--warning-color); }
+        .student-action-tag.is-pending { background-color: var(--pending-color); }
+        .tag-status { display: block; font-size: 0.8em; font-weight: 500; margin-top: 5px; opacity: 0.8; }
+        
+        .creator-credit {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            color: var(--text-secondary); padding: 8px 16px; border-radius: var(--control-border-radius);
+            border: 1px solid rgba(0, 0, 0, 0.05); font-size: 13px; font-weight: 500; text-decoration: none;
+            transition: all 0.3s ease; z-index: 100;
+        }
+        .creator-credit:hover { color: var(--text-primary); background: #fff; transform: translateY(-2px) translateX(-50%); }
+    </style>
+</head>
+<body>
+    <!-- Screen: Class Dashboard -->
+    <div id="class-dashboard-screen" class="app-screen">
+        <div class="container">
+            <div class="header">
+                <h1>我的班級</h1>
+                <div>
+                    <button id="show-global-action-center-btn" class="btn-warning">學生任務中心 (全校)</button>
+                    <button id="show-add-class-modal-btn" class="btn-primary">新增班級</button>
+                </div>
+            </div>
+            <div id="class-dashboard-grid" class="dashboard-grid"></div>
+        </div>
+    </div>
+
+    <!-- Screen: Homework Dashboard -->
+    <div id="homework-dashboard-screen" class="app-screen">
+        <div class="container">
+            <div class="header">
+                <div> <h1 id="homework-header-title"></h1> <p id="homework-header-subtitle"></p> </div>
+                <div> <button id="back-to-class-dashboard-btn" class="btn-secondary">返回班級列表</button> <button id="show-add-homework-modal-btn" class="btn-primary">新增作業</button> </div>
+            </div>
+            <div class="footer-actions" style="justify-content: flex-start; margin-top: 0; margin-bottom: 20px;">
+                <button id="show-class-action-center-btn" class="btn-warning">本班任務中心</button>
+                <button id="edit-class-btn" class="btn-secondary">編輯班級與名單</button>
+                <button id="export-class-report-btn" class="btn-secondary">匯出班級報告</button>
+            </div>
+            <div id="homework-dashboard-grid" class="dashboard-grid"></div>
+        </div>
+    </div>
+
+    <!-- Screen: Tracking Page -->
+    <div id="tracking-screen" class="app-screen">
+        <div class="container">
+            <div class="header">
+                <div> <h1 id="tracking-title"></h1> <p id="tracking-subtitle"></p> </div>
+                <button id="back-to-homework-dashboard-btn" class="btn-secondary">返回作業列表</button>
+            </div>
+            <div class="card"><div id="student-checklist-grid"></div></div>
+            <div class="footer-actions"> <button id="delete-homework-btn" class="btn-danger">刪除此作業</button> </div>
+        </div>
+    </div>
+    
+    <!-- Screen: Student Action Center -->
+    <div id="student-action-center-screen" class="app-screen">
+        <div class="container">
+           <div class="header"><h1 id="action-center-title">學生任務中心</h1><button id="action-center-back-btn" class="btn-secondary">返回</button></div>
+           <div id="student-action-center-container"></div>
+       </div>
+   </div>
+
+    <!-- Modals -->
+    <div id="add-edit-class-modal" class="modal">
+        <div class="modal-card"> <h2 id="class-modal-title">新增班級</h2> <div class="control-group" style="margin-bottom: 20px;"> <label for="class-name-input">班級名稱</label> <input type="text" id="class-name-input" placeholder="例如：三年一班"> </div> <div class="control-group"> <label for="student-list-input">學生名單</label> <textarea id="student-list-input" placeholder="輸入班級總人數 (例如 28)&#10;或&#10;1 王小明&#10;2 陳大華&#10;..."></textarea> </div> <div class="modal-actions"> <button id="delete-class-btn" class="btn-danger" style="display: none; margin-right: auto;">刪除班級</button> <button id="cancel-class-modal-btn" class="btn-secondary">取消</button> <button id="save-class-btn" class="btn-primary">儲存</button> </div> </div>
+    </div>
+    <div id="add-homework-modal" class="modal">
+        <div class="modal-card"> <h2>新增作業</h2> <div class="control-group"> <label for="homework-title-input">作業名稱</label> <input type="text" id="homework-title-input" placeholder="例如：數學習作 P.30-32"> </div> <div class="modal-actions"> <button id="cancel-add-homework-btn" class="btn-secondary" style="flex: 1;">取消</button> <button id="confirm-add-homework-btn" class="btn-primary" style="flex: 1;">確認新增</button> </div> </div>
+    </div>
+    <div id="export-modal" class="modal">
+        <div class="modal-card"> <h2 id="export-modal-title">匯出報告</h2> <textarea id="export-content" readonly></textarea> <div class="modal-actions"> <button id="copy-export-btn" class="btn-success" style="flex: 1;">複製到剪貼簿</button> <button id="close-export-modal-btn" class="btn-secondary" style="flex: 1;">關閉</button> </div> </div>
+    </div>
+
+    <a href="https://www.facebook.com/FunFun.AI.Teacher/" target="_blank" rel="noopener noreferrer" class="creator-credit"> Created by 方方老師 </a>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const screens = {
+            classDashboard: document.getElementById('class-dashboard-screen'),
+            homeworkDashboard: document.getElementById('homework-dashboard-screen'),
+            tracking: document.getElementById('tracking-screen'),
+            studentActionCenter: document.getElementById('student-action-center-screen')
+        };
+        const modals = { class: document.getElementById('add-edit-class-modal'), homework: document.getElementById('add-homework-modal'), export: document.getElementById('export-modal') };
+        
+        let appData = { classes: [] };
+        let currentClassId = null;
+        let currentHomeworkId = null;
+        let actionCenterContext = 'global'; // 'global' or 'class'
+        const STATUS_ORDER = ['pending', 'submitted', 'needs_correction', 'completed'];
+        const STATUS_TEXT = { pending: '未繳交', submitted: '已繳交', needs_correction: '待訂正', completed: '已完成' };
+
+        const saveData = () => localStorage.setItem('homeworkManagerData_v4_4', JSON.stringify(appData));
+        const loadData = () => {
+            const data = localStorage.getItem('homeworkManagerData_v4_4');
+            appData = data ? JSON.parse(data) : { classes: [] };
+        };
+
+        const switchScreen = (screenName) => {
+            Object.values(screens).forEach(s => s.classList.remove('active'));
+            screens[screenName].classList.add('active');
+        };
+
+        const renderClassDashboard = () => {
+            const grid = document.getElementById('class-dashboard-grid');
+            grid.innerHTML = '';
+            if (appData.classes.length === 0) {
+                grid.innerHTML = `<p style="color: var(--text-secondary); grid-column: 1 / -1; text-align: center; font-size: 1.2em;">目前沒有班級，請點擊右上角新增一個吧！</p>`;
+            }
+            appData.classes.forEach(cls => {
+                const card = document.createElement('div');
+                card.className = 'class-card card';
+                card.dataset.id = cls.id;
+                card.innerHTML = `<div class="card-title">${cls.name}</div><div class="card-footer"><span>${cls.students.length} 位學生</span></div>`;
+                grid.appendChild(card);
+            });
+        };
+        
+        const renderHomeworkDashboard = () => {
+            const cls = appData.classes.find(c => c.id === currentClassId);
+            if (!cls) return;
+
+            document.getElementById('homework-header-title').textContent = cls.name;
+            document.getElementById('homework-header-subtitle').textContent = `共有 ${cls.homeworks.length} 項作業`;
+            const grid = document.getElementById('homework-dashboard-grid');
+            grid.innerHTML = '';
+
+            if (cls.homeworks.length === 0) {
+                 grid.innerHTML = `<p style="color: var(--text-secondary); grid-column: 1 / -1; text-align: center; font-size: 1.2em;">這個班級還沒有作業喔，快新增一個吧！</p>`;
+            }
+
+            cls.homeworks.forEach(hw => {
+                const pendingCount = hw.studentStatus.filter(s => s.status === 'pending').length;
+                const correctionCount = hw.studentStatus.filter(s => s.status === 'needs_correction').length;
+                
+                let badgeHTML = '';
+                if (pendingCount === 0 && correctionCount === 0) {
+                    badgeHTML = `<span class="status-badge status-badge-completed">全班完成</span>`;
+                } else {
+                    if (pendingCount > 0) badgeHTML += `<span class="status-badge status-badge-pending">${pendingCount} 人未繳</span>`;
+                    if (correctionCount > 0) badgeHTML += `<span class="status-badge status-badge-correction">${correctionCount} 人待訂</span>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'homework-card card';
+                card.dataset.id = hw.id;
+                card.innerHTML = `<div class="card-title">${hw.title}</div><div class="card-footer"><span>${hw.date}</span><div class="card-footer-badges">${badgeHTML}</div></div>`;
+                grid.appendChild(card);
+            });
+        };
+
+        const renderTrackingPage = () => {
+            const cls = appData.classes.find(c => c.id === currentClassId);
+            const homework = cls.homeworks.find(hw => hw.id === currentHomeworkId);
+            if (!homework) return;
+
+            document.getElementById('tracking-title').textContent = homework.title;
+            document.getElementById('tracking-subtitle').textContent = `${cls.name} - ${homework.date}`;
+            const grid = document.getElementById('student-checklist-grid');
+            grid.innerHTML = '';
+
+            homework.studentStatus.forEach(student => {
+                const studentInfo = cls.students.find(s => s.id === student.id);
+                const item = document.createElement('div');
+                item.className = `student-item status-${student.status}`;
+                item.dataset.id = student.id;
+                item.innerHTML = `<span class="student-item-id">${studentInfo.id}號</span><span>${studentInfo.name}</span><span class="student-item-status">${STATUS_TEXT[student.status]}</span>`;
+                grid.appendChild(item);
+            });
+        };
+        
+        const renderStudentActionCenter = (classId = null) => {
+            const container = document.getElementById('student-action-center-container');
+            const titleEl = document.getElementById('action-center-title');
+            container.innerHTML = '';
+            
+            let classesToProcess = [];
+            if(classId) {
+                const cls = appData.classes.find(c => c.id === classId);
+                if(cls) {
+                    classesToProcess.push(cls);
+                    titleEl.textContent = `[${cls.name}] 任務中心`;
+                }
+            } else {
+                classesToProcess = appData.classes;
+                titleEl.textContent = '學生任務中心 (全校)';
+            }
+
+            let tasksExist = false;
+            const tasksByHomework = {};
+
+            classesToProcess.forEach(cls => {
+                cls.homeworks.forEach(hw => {
+                    const studentsWithTasks = hw.studentStatus.filter(s => ['pending', 'needs_correction'].includes(s.status));
+                    if (studentsWithTasks.length > 0) {
+                        tasksExist = true;
+                        const key = `${cls.id}-${hw.id}`;
+                        tasksByHomework[key] = {
+                            className: cls.name,
+                            homeworkTitle: hw.title,
+                            students: studentsWithTasks.map(studentStatus => {
+                                const studentInfo = cls.students.find(s => s.id === studentStatus.id);
+                                return { ...studentInfo, status: studentStatus.status, homeworkId: hw.id, classId: cls.id };
+                            })
+                        };
+                    }
+                });
+            });
+
+            if (!tasksExist) {
+                container.innerHTML = `<div class="card" style="text-align: center; font-size: 1.5em; color: var(--text-primary);">🎉 太棒了！目前沒有任何待辦任務！</div>`;
+            } else {
+                for(const key in tasksByHomework) {
+                    const taskGroup = tasksByHomework[key];
+                    const card = document.createElement('div');
+                    card.className = 'task-card card';
+                    card.innerHTML = `<h3 class="task-card-title">[${taskGroup.className}] ${taskGroup.homeworkTitle}</h3>`;
+                    const tagsGrid = document.createElement('div');
+                    tagsGrid.className = 'student-tags-grid';
+
+                    taskGroup.students.forEach(student => {
+                        const tag = document.createElement('button');
+                        const isPending = student.status === 'pending';
+                        tag.className = `student-action-tag ${isPending ? 'is-pending' : 'is-correction'}`;
+                        tag.innerHTML = `<span>${student.id}號 ${student.name || ''}</span><span class="tag-status">(${isPending ? '未繳交' : '待訂正'})</span>`;
+                        tag.dataset.studentId = student.id;
+                        tag.dataset.homeworkId = student.homeworkId;
+                        tag.dataset.classId = student.classId;
+                        tag.dataset.status = student.status;
+                        tagsGrid.appendChild(tag);
+                    });
+                    card.appendChild(tagsGrid);
+                    container.appendChild(card);
+                }
+            }
+            switchScreen('studentActionCenter');
+        };
+
+        const showModal = (modalName) => modals[modalName].classList.add('visible');
+        const closeModal = (modalName) => modals[modalName].classList.remove('visible');
+
+        const showAddEditClassModal = (classId = null) => {
+            const modal = modals.class;
+            const title = modal.querySelector('#class-modal-title');
+            const nameInput = modal.querySelector('#class-name-input');
+            const listInput = modal.querySelector('#student-list-input');
+            const deleteBtn = modal.querySelector('#delete-class-btn');
+            
+            modal.dataset.editingId = classId || '';
+            if (classId) {
+                const cls = appData.classes.find(c => c.id === classId);
+                title.textContent = "編輯班級";
+                nameInput.value = cls.name;
+                listInput.value = cls.students.map(s => `${s.id} ${s.name}`).join('\n');
+                deleteBtn.style.display = 'block';
+            } else {
+                title.textContent = "新增班級";
+                nameInput.value = ''; listInput.value = '';
+                deleteBtn.style.display = 'none';
+            }
+            showModal('class');
+        };
+        
+        const saveClass = () => {
+            const modal = modals.class;
+            const name = modal.querySelector('#class-name-input').value.trim();
+            const list = modal.querySelector('#student-list-input').value.trim();
+            const editingId = modal.dataset.editingId;
+
+            if (!name || !list) { alert('班級名稱和學生名單不能為空！'); return; }
+
+            let students = [];
+            if (!list.includes('\n') && !isNaN(parseInt(list, 10)) && parseInt(list, 10) > 0) {
+                 const classSize = parseInt(list, 10);
+                 for (let i = 1; i <= classSize; i++) students.push({ id: String(i), name: '' });
+            } else {
+                students = list.split('\n').map(line => {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length >= 1) return { id: parts[0], name: parts.slice(1).join(' ') || '' };
+                    return null;
+                }).filter(Boolean);
+            }
+
+            if (students.length === 0) { alert('無法解析學生名單，請檢查格式！'); return; }
+
+            if (editingId) {
+                const cls = appData.classes.find(c => c.id === editingId);
+                cls.name = name; cls.students = students;
+            } else {
+                appData.classes.push({ id: `C${Date.now()}`, name, students, homeworks: [] });
+            }
+            saveData(); renderClassDashboard(); closeModal('class');
+        };
+
+        const deleteClass = () => {
+            const editingId = modals.class.dataset.editingId;
+            if (confirm('確定要永久刪除這個班級及其所有作業嗎？此操作無法復原。')) {
+                appData.classes = appData.classes.filter(c => c.id !== editingId);
+                saveData(); renderClassDashboard(); closeModal('class'); switchScreen('classDashboard');
+            }
+        };
+
+        const addHomework = () => {
+            const title = document.getElementById('homework-title-input').value.trim();
+            if (!title) { alert('請輸入作業名稱！'); return; }
+
+            const cls = appData.classes.find(c => c.id === currentClassId);
+            const newHomework = { id: `H${Date.now()}`, title, date: new Date().toLocaleDateString('zh-TW'), studentStatus: cls.students.map(s => ({ id: s.id, status: 'pending' })) };
+            cls.homeworks.unshift(newHomework);
+            saveData(); renderHomeworkDashboard(); closeModal('homework');
+            document.getElementById('homework-title-input').value = '';
+        };
+
+        const deleteHomework = () => {
+            if (confirm('確定要永久刪除此項作業嗎？此操作無法復原。')) {
+                const cls = appData.classes.find(c => c.id === currentClassId);
+                cls.homeworks = cls.homeworks.filter(hw => hw.id !== currentHomeworkId);
+                saveData(); renderHomeworkDashboard(); switchScreen('homeworkDashboard');
+            }
+        };
+        
+        const handleStudentAction = (e) => {
+            const tag = e.target.closest('.student-action-tag');
+            if (!tag) return;
+            
+            const { studentId, homeworkId, classId, status } = tag.dataset;
+            const cls = appData.classes.find(c => c.id === classId);
+            const homework = cls.homeworks.find(hw => hw.id === homeworkId);
+            const studentInfo = cls.students.find(s => s.id === studentId);
+            const studentStatus = homework.studentStatus.find(s => s.id === studentId);
+
+            let confirmMessage = '', nextStatus = '';
+            if (status === 'pending') {
+                confirmMessage = `【${studentInfo.id}號 ${studentInfo.name}】同學，你確定要繳交「${homework.title}」嗎？`;
+                nextStatus = 'submitted';
+            } else if (status === 'needs_correction') {
+                confirmMessage = `【${studentInfo.id}號 ${studentInfo.name}】同學，你確定已經訂正好「${homework.title}」了嗎？`;
+                nextStatus = 'completed';
+            } else return;
+
+            if (confirm(confirmMessage)) {
+                studentStatus.status = nextStatus;
+                saveData();
+                tag.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                tag.style.transform = 'scale(0)';
+                tag.style.opacity = '0';
+                setTimeout(() => {
+                    if(actionCenterContext === 'class') renderStudentActionCenter(classId);
+                    else renderStudentActionCenter();
+                }, 300);
+            }
+        };
+
+        const toggleStudentStatus = (studentId) => {
+            const cls = appData.classes.find(c => c.id === currentClassId);
+            const homework = cls.homeworks.find(hw => hw.id === currentHomeworkId);
+            const student = homework.studentStatus.find(s => s.id === studentId);
+            if (student) {
+                const currentIndex = STATUS_ORDER.indexOf(student.status);
+                const nextIndex = (currentIndex + 1) % STATUS_ORDER.length;
+                student.status = STATUS_ORDER[nextIndex];
+                saveData(); renderTrackingPage();
+            }
+        };
+        
+        const exportClassReport = () => {
+             const cls = appData.classes.find(c => c.id === currentClassId);
+             let report = `--- ${cls.name} 未完成項目報告 ---\n\n`;
+             let studentsWithPending = {};
+             cls.homeworks.forEach(hw => {
+                 hw.studentStatus.forEach(s => {
+                     if (['pending', 'needs_correction'].includes(s.status)) {
+                         if (!studentsWithPending[s.id]) {
+                            const studentInfo = cls.students.find(si => si.id === s.id);
+                            studentsWithPending[s.id] = { name: studentInfo.name || '', tasks: [] };
+                         }
+                         studentsWithPending[s.id].tasks.push(`- ${hw.title} (${STATUS_TEXT[s.status]})`);
+                     }
+                 });
+             });
+             if (Object.keys(studentsWithPending).length === 0) report += "🎉 太棒了！本班所有作業都已完成！";
+             else {
+                 for (const studentId in studentsWithPending) {
+                     const studentData = studentsWithPending[studentId];
+                     report += `[${studentId}號 ${studentData.name}]\n`.trim() + studentData.tasks.join('\n') + '\n\n';
+                 }
+             }
+             showExportModal(`${cls.name} 報告`, report);
+        };
+
+        const showExportModal = (title, content) => {
+            modals.export.querySelector('#export-modal-title').textContent = title;
+            modals.export.querySelector('#export-content').value = content;
+            showModal('export');
+        };
+
+        // --- Event Listeners ---
+        document.getElementById('show-global-action-center-btn').addEventListener('click', () => {
+            actionCenterContext = 'global';
+            renderStudentActionCenter();
+        });
+        document.getElementById('show-class-action-center-btn').addEventListener('click', () => {
+            actionCenterContext = 'class';
+            renderStudentActionCenter(currentClassId);
+        });
+        document.getElementById('student-action-center-container').addEventListener('click', handleStudentAction);
+        document.getElementById('action-center-back-btn').addEventListener('click', () => {
+            if (actionCenterContext === 'class') {
+                renderHomeworkDashboard();
+                switchScreen('homeworkDashboard');
+            } else {
+                switchScreen('classDashboard');
+            }
+        });
+
+        document.getElementById('class-dashboard-grid').addEventListener('click', (e) => {
+            const card = e.target.closest('.class-card');
+            if (card) { currentClassId = card.dataset.id; renderHomeworkDashboard(); switchScreen('homeworkDashboard'); }
+        });
+        document.getElementById('homework-dashboard-grid').addEventListener('click', (e) => {
+            const card = e.target.closest('.homework-card');
+            if (card) { currentHomeworkId = card.dataset.id; renderTrackingPage(); switchScreen('tracking'); }
+        });
+        document.getElementById('back-to-class-dashboard-btn').addEventListener('click', () => switchScreen('classDashboard'));
+        document.getElementById('back-to-homework-dashboard-btn').addEventListener('click', () => { renderHomeworkDashboard(); switchScreen('homeworkDashboard'); });
+        document.getElementById('show-add-class-modal-btn').addEventListener('click', () => showAddEditClassModal());
+        document.getElementById('edit-class-btn').addEventListener('click', () => showAddEditClassModal(currentClassId));
+        document.getElementById('cancel-class-modal-btn').addEventListener('click', () => closeModal('class'));
+        document.getElementById('save-class-btn').addEventListener('click', saveClass);
+        document.getElementById('delete-class-btn').addEventListener('click', deleteClass);
+        document.getElementById('show-add-homework-modal-btn').addEventListener('click', () => showModal('homework'));
+        document.getElementById('cancel-add-homework-btn').addEventListener('click', () => closeModal('homework'));
+        document.getElementById('confirm-add-homework-btn').addEventListener('click', addHomework);
+        document.getElementById('student-checklist-grid').addEventListener('click', (e) => {
+            const item = e.target.closest('.student-item');
+            if (item) { toggleStudentStatus(item.dataset.id); }
+        });
+        document.getElementById('delete-homework-btn').addEventListener('click', deleteHomework);
+        document.getElementById('export-class-report-btn').addEventListener('click', exportClassReport);
+        document.getElementById('close-export-modal-btn').addEventListener('click', () => closeModal('export'));
+        document.getElementById('copy-export-btn').addEventListener('click', () => {
+            modals.export.querySelector('#export-content').select();
+            document.execCommand('copy');
+            alert('已複製到剪貼簿！');
+        });
+        
+        // --- Initialization ---
+        const init = () => { loadData(); renderClassDashboard(); switchScreen('classDashboard'); };
+        init();
+    });
+    </script>
+</body>
+</html>
